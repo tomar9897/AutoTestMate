@@ -1,0 +1,55 @@
+/* Onboarding.css */
+
+@keyframes onboardingFadeIn {
+  from { opacity: 0; transform: scale(0.95); }
+  to   { opacity: 1; transform: scale(1); }
+}
+
+.onboarding__wrapper {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  background: linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%);
+  z-index: 9999;
+  animation: onboardingFadeIn .8s ease-out forwards;
+}
+
+.onboarding__content {
+  text-align: center;
+  color: white;
+}
+
+.onboarding__title {
+  font-size: 2.5rem;
+  margin-bottom: 0.5rem;
+}
+
+.onboarding__subtitle {
+  font-size: 1.25rem;
+  margin-bottom: 1rem;
+}
+
+.onboarding__dots {
+  display: flex;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1rem auto;
+}
+
+.onboarding__dot {
+  width: 0.6rem;
+  height: 0.6rem;
+  background: white;
+  border-radius: 50%;
+  animation: bounce 1s infinite ease-in-out;
+}
+
+.onboarding__dot:nth-child(2) { animation-delay: 0.2s; }
+.onboarding__dot:nth-child(3) { animation-delay: 0.4s; }
+
+@keyframes bounce {
+  0%,80%,100% { transform: scale(0); }
+  40% { transform: scale(1); }
+}

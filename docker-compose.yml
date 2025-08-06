@@ -1,0 +1,26 @@
+version: '3'
+
+services:
+  backend:
+    build:
+      context: ./frontend-template/backend
+      dockerfile: Dockerfile.backend
+    ports:
+      - "5000:5000"
+    working_dir: /app
+    volumes:
+      - ./frontend-template/backend:/app
+    env_file:
+      - ./frontend-template/backend/.env
+
+  frontend:
+    build:
+      context: ./frontend-template
+      dockerfile: Dockerfile.frontend
+    ports:
+      - "3000:3000"
+    working_dir: /app
+    volumes:
+      - ./frontend-template:/app
+    depends_on:
+      - backend
