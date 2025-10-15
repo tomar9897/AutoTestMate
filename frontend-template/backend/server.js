@@ -6,8 +6,8 @@ import morgan from "morgan";
 import axios from "axios";
 import Groq from "groq-sdk";
 import { GoogleGenerativeAI } from "@google/generative-ai";
-import { CohereClient } from "cohere-ai";  // ADD: Cohere import
-import { buildStructuredPrompt } from "./prompttemplate.js";
+import { CohereClient } from "cohere-ai";  // Cohere ai
+import { buildStructuredPrompt } from "./promptTemplate.js";
 
 dotenv.config();
 
@@ -18,8 +18,8 @@ const allowedOrigins = [
   "http://localhost:5173",
   "http://127.0.0.1:5173",
   "http://localhost:3000",
-  // deployed frontend URL will be added here via an environment variable
-  process.env.CORS_ORIGIN
+  process.env.CORS_ORIGIN,
+  process.env.FRONTEND_URL
 ].filter(Boolean);
 
 // CORS for Vite dev server
@@ -35,8 +35,8 @@ app.use(morgan("dev"));
 
 // Initialize AI clients
 const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
-const geminiFlashModel = genAI.getGenerativeModel({ model: "models/gemini-1.5-flash" });
-const geminiProModel = genAI.getGenerativeModel({ model: "models/gemini-1.5-pro" });
+const geminiFlashModel = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash" });
+const geminiProModel = genAI.getGenerativeModel({ model: "models/gemini-2.0-flash-thinking-exp" });
 
 // Initialize Groq client
 let groq;
@@ -46,9 +46,9 @@ if (process.env.GROQ_API_KEY) {
       apiKey: process.env.GROQ_API_KEY,
       timeout: 30000,
     });
-    console.log("✅ Groq client initialized");
+    console.log("Groq client initialized");
   } catch (error) {
-    console.error("❌ Failed to initialize Groq:", error.message);
+    console.error(" Failed to initialize Groq:", error.message);
   }
 }
 
@@ -59,9 +59,9 @@ if (process.env.COHERE_API_KEY) {
     cohere = new CohereClient({
       token: process.env.COHERE_API_KEY,
     });
-    console.log("✅ Cohere client initialized");
+    console.log(" Cohere client initialized");
   } catch (error) {
-    console.error("❌ Failed to initialize Cohere:", error.message);
+    console.error(" Failed to initialize Cohere:", error.message);
   }
 }
 
@@ -85,10 +85,10 @@ async function callGroqAPI(prompt) {
     const content = chatCompletion.choices[0]?.message?.content;
     if (!content) throw new Error("Empty response from Groq");
     
-    console.log("✅ Groq API success");
+    console.log(" Groq API success");
     return content;
   } catch (error) {
-    console.error("❌ Groq API Error:", error.message);
+    console.error(" Groq API Error:", error.message);
     throw new Error(`Groq API error: ${error.message}`);
   }
 }
@@ -100,7 +100,7 @@ async function callCohereAPI(prompt) {
   }
 
   try {
-    console.log("🌟 Calling Cohere API (Free Tier)...");
+    console.log(" Calling Cohere API (Free Tier)...");
     
     const response = await cohere.generate({
       model: "command",
@@ -116,7 +116,7 @@ async function callCohereAPI(prompt) {
     const content = response.generations[0]?.text;
     if (!content) throw new Error("Empty response from Cohere");
     
-    console.log("✅ Cohere API success");
+    console.log(" Cohere API success");
     return content.trim();
   } catch (error) {
     console.error("❌ Cohere API Error:", error.message || error);
@@ -141,7 +141,7 @@ async function callGeminiAPI(prompt, model = "flash") {
   const modelName = model === "pro" ? "Gemini Pro" : "Gemini Flash";
   
   try {
-    console.log(`🔷 Using ${modelName} API...`);
+    console.log(` Using ${modelName} API...`);
     const result = await selectedModel.generateContent({
       contents: [{ parts: [{ text: prompt }] }]
     });
@@ -151,10 +151,10 @@ async function callGeminiAPI(prompt, model = "flash") {
     
     if (!text) throw new Error(`Empty response from ${modelName}`);
     
-    console.log(`✅ ${modelName} API success`);
+    console.log(` ${modelName} API success`);
     return text;
   } catch (error) {
-    console.error(`❌ ${modelName} failed:`, error.message);
+    console.error(`❌ ${modelName} failed:`, error.message); // need to CHK it aGAIN
     throw error;
   }
 }
@@ -164,13 +164,13 @@ function parseMarkdownToTestCases(markdownText) {
   const testCases = [];
   
   try {
-    console.log("📝 Starting to parse markdown response...");
-    console.log("🔍 Raw text preview:", markdownText.substring(0, 300) + "...");
+    console.log(" Starting to parse markdown response...");
+    console.log(" Raw text preview:", markdownText.substring(0, 300) + "...");
     
     // Split by the new format: **Test Case X: [Name]**
     const testCaseSections = markdownText.split(/\*\*Test Case \d+:/);
     
-    console.log(`📋 Found ${testCaseSections.length - 1} test case sections`);
+    console.log(` Found ${testCaseSections.length - 1} test case sections`);
     
     for (let i = 1; i < testCaseSections.length; i++) {
       const section = testCaseSections[i];
@@ -182,7 +182,7 @@ function parseMarkdownToTestCases(markdownText) {
       const nameMatch = section.match(/^([^*]+?)\*\*/);
       if (nameMatch) {
         name = nameMatch[1].trim();
-        console.log("✅ Found name:", name);
+        console.log(" Found name:", name);
       }
       
       // Extract objective/description (new format uses **Objective:** instead of Description)
@@ -190,7 +190,7 @@ function parseMarkdownToTestCases(markdownText) {
       const objectiveMatch = section.match(/\*\*Objective:\*\*\s*([^*]+?)(?=\*\*|$)/s);
       if (objectiveMatch) {
         description = objectiveMatch[1].trim();
-        console.log("✅ Found objective:", description.substring(0, 50) + "...");
+        console.log(" Found objective:", description.substring(0, 50) + "...");
       }
       
       // Extract preconditions (new format uses **Preconditions:**)
@@ -198,7 +198,7 @@ function parseMarkdownToTestCases(markdownText) {
       const precondMatch = section.match(/\*\*Preconditions?:\*\*\s*([^*]+?)(?=\*\*|$)/s);
       if (precondMatch) {
         precondition = precondMatch[1].trim();
-        console.log("✅ Found precondition:", precondition.substring(0, 50) + "...");
+        console.log(" Found precondition:", precondition.substring(0, 50) + "...");
       }
       
       const steps = [];
@@ -220,12 +220,12 @@ function parseMarkdownToTestCases(markdownText) {
           const stepDesc = stepMatch[2].trim();
           const expectedResult = stepMatch[3].trim();
           
-          console.log(`  📌 Step ${stepNum}: ${stepDesc.substring(0, 30)}...`);
+          console.log(`   Step ${stepNum}: ${stepDesc.substring(0, 30)}...`);
           
           steps.push(`${stepNum} | ${stepDesc} | ${expectedResult}`);
         }
         
-        console.log(`✅ Extracted ${stepCount} steps`);
+        console.log(` Extracted ${stepCount} steps`);
       }
       
       // Fallback: if no steps found, create a meaningful default step
@@ -237,7 +237,7 @@ function parseMarkdownToTestCases(markdownText) {
         steps.push(defaultStep);
       }
       
-      console.log(`✅ Final test case: ${name} with ${steps.length} steps`);
+      console.log(` Final test case: ${name} with ${steps.length} steps`);
       
       testCases.push({
         name,
@@ -247,12 +247,12 @@ function parseMarkdownToTestCases(markdownText) {
       });
     }
     
-    console.log(`\n📊 Successfully parsed ${testCases.length} test cases from markdown`);
+    console.log(`\n Successfully parsed ${testCases.length} test cases from markdown`);
     return testCases;
     
   } catch (error) {
-    console.error("❌ Error parsing markdown:", error);
-    console.log("📄 Full markdown text for debugging:", markdownText);
+    console.error(" Error parsing markdown:", error);
+    console.log(" Full markdown text for debugging:", markdownText);
     
     // Return a more helpful fallback
     return [{
@@ -264,17 +264,17 @@ function parseMarkdownToTestCases(markdownText) {
   }
 }
 
-// 1a. ORIGINAL Endpoint (keeping for backwards compatibility)
+// 1a. ORIGINAL EndpoINT (keeping for backwards compatibility)
 app.post("/api/improve", async (req, res) => {
   const { prompt } = req.body;
 
   if (!prompt) {
-    console.log("❌ Prompt missing in request");
+    console.log(" Prompt missing in request");
     return res.status(400).json({ error: "Prompt is required" });
   }
 
   try {
-    console.log("📥 [/api/improve] Improving prompt:", prompt);
+    console.log(" [/api/improve] Improving prompt:", prompt);
 
     const result = await geminiFlashModel.generateContent({
       contents: [{ parts: [{ text: `Please improve this user story or requirement:\n\n"${prompt}"` }] }],
@@ -283,25 +283,25 @@ app.post("/api/improve", async (req, res) => {
     const response = result.response;
     const improved = await response.text();
 
-    console.log("🎯 Improved prompt:", improved);
+    //console.log(" Improved prompt:", improved);
     res.json({ improvedPrompt: improved });
   } catch (error) {
-    console.error("❌ Error improving prompt:", error);
+    console.error(" Error improving prompt:", error);
     res.status(500).json({ error: "Failed to improve prompt" });
   }
 });
 
-// 1b. NEW Endpoint (for any future calls from frontend)
+// 1b. NEW ENdpoint (for any future calls from frontend) -- yaar
 app.post("/api/ai/improve-prompt", async (req, res) => {
   const { rawPrompt, engine } = req.body;
 
   if (!rawPrompt) {
-    console.log("❌ Raw prompt missing in request");
+    console.log(" Raw prompt missing in request");
     return res.status(400).json({ error: "Raw prompt is required" });
   }
 
   try {
-    console.log("📥 [/api/ai/improve-prompt] Raw prompt:", rawPrompt, "Engine:", engine);
+    console.log(" [/api/ai/improve-prompt] Raw prompt:", rawPrompt, "Engine:", engine);
 
     const result = await geminiFlashModel.generateContent({
       contents: [{ parts: [{ text: `Please improve this user story or requirement:\n\n"${rawPrompt}"` }] }],
@@ -310,10 +310,10 @@ app.post("/api/ai/improve-prompt", async (req, res) => {
     const response = result.response;
     const improved = await response.text();
 
-    console.log("🎯 Improved prompt:", improved);
+    // console.log(" Improved prompt:", improved);
     res.json({ improvedPrompt: improved });
   } catch (error) {
-    console.error("❌ Error improving prompt:", error);
+    console.error(" Error improving prompt:", error);
     res.status(500).json({ error: "Failed to improve prompt" });
   }
 });
@@ -329,26 +329,26 @@ app.post("/api/ai/generate-testcases", async (req, res) => {
 
   try {
     console.log("\n🧪 [/api/ai/generate-testcases] Starting test case generation...");
-    console.log("📥 Improved prompt:", improvedPrompt.substring(0, 100) + "...");
-    console.log("🔢 Requested test case count:", testCaseCount);
-    console.log("🤖 Using engine:", engine || "gemini");
+    console.log(" Improved prompt:", improvedPrompt.substring(0, 100) + "...");
+    console.log(" Requested test case count:", testCaseCount);
+    console.log(" Using engine:", engine || "gemini");
 
     const structuredPrompt = buildStructuredPrompt(improvedPrompt, testCaseCount);
-    console.log("📝 Structured prompt length:", structuredPrompt.length);
-    console.log("📄 Structured prompt preview:", structuredPrompt.substring(0, 200) + "...");
+    console.log(" Structured prompt length:", structuredPrompt.length);
+    console.log(" Structured prompt preview:", structuredPrompt.substring(0, 200) + "...");
 
     let text;
     let usedEngine = engine || "gemini";
     
-    // Handle different AI engines (ADD: Cohere case)
+    // handle different AI engines (ADD: Cohere case)
     switch (engine) {
       case "groq":
         try {
           text = await callGroqAPI(structuredPrompt);
           usedEngine = "groq";
         } catch (groqError) {
-          console.error("❌ Groq API failed:", groqError.message);
-          console.log("🔄 Falling back to Gemini...");
+          console.error(" Groq API failed:", groqError.message);
+          console.log(" Falling back to Gemini...");
           text = await callGeminiAPI(structuredPrompt, "flash");
           usedEngine = "gemini (groq fallback)";
         }
@@ -359,8 +359,8 @@ app.post("/api/ai/generate-testcases", async (req, res) => {
           text = await callCohereAPI(structuredPrompt);
           usedEngine = "cohere-free";
         } catch (cohereError) {
-          console.error("❌ Cohere API failed:", cohereError.message);
-          console.log("🔄 Falling back to Gemini...");
+          console.error(" Cohere API failed:", cohereError.message);
+          console.log(" Falling back to Gemini...");
           text = await callGeminiAPI(structuredPrompt, "flash");
           usedEngine = "gemini (cohere fallback)";
         }
@@ -371,14 +371,14 @@ app.post("/api/ai/generate-testcases", async (req, res) => {
           text = await callGeminiAPI(structuredPrompt, "pro");
           usedEngine = "gemini-pro";
         } catch (error) {
-          console.log("🔄 Falling back to Gemini Flash...");
+          console.log(" Falling back to Gemini Flash...");
           text = await callGeminiAPI(structuredPrompt, "flash");
           usedEngine = "gemini-flash (pro fallback)";
         }
         break;
         
       case "ollama":
-        console.log("⚠️ Ollama engine not yet implemented, falling back to Gemini");
+        console.log(" Ollama engine not yet implemented, falling back to Gemini");
         text = await callGeminiAPI(structuredPrompt, "flash");
         usedEngine = "gemini (ollama not available)";
         break;
@@ -390,8 +390,8 @@ app.post("/api/ai/generate-testcases", async (req, res) => {
         break;
     }
 
-    console.log("📨 AI returned response, length:", text.length);
-    console.log("📄 AI response preview:", text.substring(0, 300) + "...");
+    console.log(" AI returned response, length:", text.length);
+    console.log(" AI response preview:", text.substring(0, 300) + "...");
 
     // Try to extract JSON from markdown code blocks first
     const jsonMatch = text.match(/``````/);
@@ -400,13 +400,13 @@ app.post("/api/ai/generate-testcases", async (req, res) => {
     
     if (jsonMatch) {
       try {
-        console.log("🔍 Found JSON code block, attempting to parse...");
+        console.log(" Found JSON code block, attempting to parse...");
         const parsed = JSON.parse(jsonMatch[1]);
         testCases = Array.isArray(parsed) ? parsed : (parsed.testCases || []);
         console.log("✅ Successfully parsed JSON from code block");
       } catch (jsonError) {
         console.warn("⚠️ JSON in code block is invalid, trying markdown parsing");
-        console.log("❌ JSON parsing error:", jsonError.message);
+        console.log(" JSON parsing error:", jsonError.message);
         testCases = parseMarkdownToTestCases(text);
       }
     } else {
@@ -430,7 +430,7 @@ app.post("/api/ai/generate-testcases", async (req, res) => {
       console.warn(`🚨 COUNT MISMATCH: Requested ${testCaseCount}, got ${testCases.length}`);
     }
 
-    console.log(`\n✅ Final result: Returning ${testCases.length} test cases using ${usedEngine}`);
+    console.log(`\n Final result: Returning ${testCases.length} test cases using ${usedEngine}`);
     console.log("🔍 First test case sample:", JSON.stringify(testCases[0], null, 2));
 
     res.json({ 
@@ -450,7 +450,7 @@ app.post("/api/ai/generate-testcases", async (req, res) => {
   }
 });
 
-// 3. Health Check Endpoint (ADD: Cohere status)
+// 3. health Check Endpoint (ADD: Cohere status)  important
 app.get("/api/health", (req, res) => {
   const groqStatus = process.env.GROQ_API_KEY ? "✅ configured" : "❌ not configured";
   const geminiStatus = process.env.GEMINI_API_KEY ? "✅ configured" : "❌ not configured";
@@ -496,7 +496,7 @@ app.listen(PORT, () => {
   console.log(`🤖 AI Engine Status:`);
   console.log(`   Gemini Flash: ${process.env.GEMINI_API_KEY ? '✅ Ready' : '❌ Not configured'}`);
   console.log(`   Gemini Pro: ${process.env.GEMINI_API_KEY ? '✅ Ready' : '❌ Not configured'}`);
-  console.log(`   Groq: ${process.env.GROQ_API_KEY ? '✅ Ready' : '❌ Not configured'}`);
+  console.log(`   Groq: ${process.env.GROQ_API_KEY ? ' Ready' : ' Not configured'}`);
   console.log(`   Cohere: ${process.env.COHERE_API_KEY ? '✅ Ready' : '❌ Not configured'}`);
   console.log(`   Ollama: 🚧 Coming soon\n`);
 });

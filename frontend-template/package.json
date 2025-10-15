@@ -1,23 +1,25 @@
-
 {
   "name": "test-case-generator",
   "version": "1.0.0",
+  "type": "module",
   "description": "AI-powered test case generation tool",
   "main": "src/App.jsx",
   "scripts": {
     "dev": "vite --host",
     "build": "vite build",
+    "start": "serve dist -s -l ${PORT:-3000}",
     "preview": "vite preview",
     "lint": "eslint src --ext js,jsx --report-unused-disable-directives --max-warnings 0"
   },
   "dependencies": {
+    "jspdf": "^2.5.2",
+    "jspdf-autotable": "^3.8.4",
+    "papaparse": "^5.4.1",
     "react": "^18.2.0",
-    "react-dom": "^18.2.0",
     "react-beautiful-dnd": "^13.1.1",
-    "xlsx": "^0.18.5",
-    "jspdf": "^2.5.1",
-    "jspdf-autotable": "^3.5.31",
-    "papaparse": "^5.4.1"
+    "react-dom": "^18.2.0",
+    "serve": "^14.2.0",
+    "xlsx": "^0.18.5"
   },
   "devDependencies": {
     "@types/react": "^18.2.15",

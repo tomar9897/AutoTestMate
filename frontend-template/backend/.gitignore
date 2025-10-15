@@ -1,0 +1,18 @@
+# Node.js dependencies
+node_modules/
+/backend/node_modules/
+
+# Environment variables
+.env
+
+# Build output
+dist/
+
+# Vercel-specific files
+.vercel/
+
+# Log files
+*.log
+
+# VS Code specific files
+.vscode/

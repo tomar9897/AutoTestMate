@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from "react";
 //import './Onboarding.css';
-import '../Onboarding.css' // create this CSS file if needed
+import '../Onboarding.css' 
 
 const Onboarding = ({ onComplete }) => {
   const [show, setShow] = useState(true);

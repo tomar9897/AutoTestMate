@@ -1,31 +1,3 @@
-// import React from "react";
-
-// const Sidebar = ({ chatHistory, onLoadChat }) => {
-//   return (
-//     <aside className="w-64 bg-white dark:bg-gray-900 text-sm p-4 border-r dark:border-gray-700 overflow-y-auto">
-//       <h3 className="text-lg font-bold mb-4 dark:text-white">🗂️ Chat History</h3>
-
-//       {chatHistory.length === 0 && (
-//         <p className="text-gray-500 dark:text-gray-400">No saved chats.</p>
-//       )}
-
-//       <ul className="space-y-2">
-//         {chatHistory.map((chat) => (
-//           <li
-//             key={chat.id}
-//             className="cursor-pointer p-2 rounded hover:bg-gray-100 dark:hover:bg-gray-800 transition"
-//             onClick={() => onLoadChat(chat)}
-//           >
-//             {chat.prompt.slice(0, 30)}...
-//           </li>
-//         ))}
-//       </ul>
-//     </aside>
-//   );
-// };
-
-// export default Sidebar;
-
 
 import React, { useState } from "react";
 

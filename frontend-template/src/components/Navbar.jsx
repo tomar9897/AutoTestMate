@@ -1,56 +1,3 @@
-// import React, { useEffect, useState } from "react";
-
-// const Navbar = ({ selectedEngine, setSelectedEngine }) => {
-//   const [darkMode, setDarkMode] = useState(false);
-
-//   // Load saved preference
-//   useEffect(() => {
-//     const saved = localStorage.getItem("theme") === "dark";
-//     setDarkMode(saved);
-//     document.documentElement.classList.toggle("dark", saved);
-//   }, []);
-
-//   // Handle toggle
-//   const toggleTheme = () => {
-//     const newMode = !darkMode;
-//     setDarkMode(newMode);
-//     localStorage.setItem("theme", newMode ? "dark" : "light");
-//     document.documentElement.classList.toggle("dark", newMode);
-//   };
-
-//   return (
-//     <header className="flex items-center justify-between px-6 py-4 border-b bg-white dark:bg-gray-800 dark:text-white shadow-sm">
-//       <h1 className="text-xl font-bold">
-//         🧠 AutoTestMate
-//       </h1>
-
-//       <div className="flex items-center gap-4">
-//         {/* Engine Selector */}
-//         <select
-//           value={selectedEngine}
-//           onChange={(e) => setSelectedEngine(e.target.value)}
-//           className="bg-gray-100 dark:bg-gray-700 dark:text-white border rounded px-2 py-1 text-sm"
-//         >
-//           <option value="gemini">Gemini (Google API)</option>
-//           <option value="ollama">Ollama GPT (Agentic)</option>
-//         </select>
-
-//         {/* Dark Mode Toggle */}
-//         <button
-//           onClick={toggleTheme}
-//           className="text-xl focus:outline-none hover:scale-110 transition"
-//           title="Toggle Dark Mode"
-//         >
-//           {darkMode ? "🌙" : "💡"}
-//         </button>
-//       </div>
-//     </header>
-//   );
-// };
-
-// export default Navbar;
-
-
 
 import React, { useEffect, useState } from "react";
 
@@ -72,6 +19,13 @@ const Navbar = ({ selectedEngine, setSelectedEngine, onNewChat }) => {
     document.documentElement.classList.toggle("dark", newMode);
   };
 
+  const handleEngineChange = (e) => {
+    const newEngine = e.target.value;
+    setSelectedEngine(newEngine);
+    localStorage.setItem("selectedEngine", newEngine);
+    console.log("🔄 Engine switched to:", newEngine);
+  };
+
   return (
     <header className="flex items-center justify-between px-6 py-4 border-b bg-white dark:bg-gray-800 dark:text-white shadow-sm">
       <h1 className="text-xl font-bold">
@@ -91,15 +45,18 @@ const Navbar = ({ selectedEngine, setSelectedEngine, onNewChat }) => {
           </button>
         )}
 
-        {/* Engine Selector */}
+        {/* UPDATED: Engine Selector with all new options */}
         <select
           value={selectedEngine}
-          onChange={(e) => setSelectedEngine(e.target.value)}
-          className="bg-gray-100 dark:bg-gray-700 dark:text-white border rounded px-3 py-2 text-sm"
+          onChange={handleEngineChange}
+          className="bg-gray-100 dark:bg-gray-700 dark:text-white border border-gray-300 dark:border-gray-600 rounded px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-indigo-500"
         >
-          <option value="gemini">Gemini (Google API)</option>
-          <option value="grok">Grok (X AI)</option>
-          <option value="ollama">Ollama GPT (Agentic)</option>
+          <option value="gemini">🔷 Gemini Flash (Google)</option>
+          <option value="gemini-pro">💎 Gemini Pro (Google)</option>
+          <option value="groq">⚡ Groq (Llama3)</option>
+          <option value="openai-free">🔥 OpenAI (Free Tier)</option>
+          <option value="cohere-free">🌟 Cohere (Free Tier)</option>
+          <option value="ollama">🦙 Ollama (Coming Soon)</option>
         </select>
 
         {/* Dark Mode Toggle */}

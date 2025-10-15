@@ -1,3 +1,4 @@
+
 import { useState, useRef, useCallback, useEffect } from "react";
 import { DragDropContext, Droppable, Draggable } from "react-beautiful-dnd";
 import Navbar from "./components/Navbar";
@@ -6,7 +7,13 @@ import PromptInput from "./components/PromptInput";
 import ImprovedPromptEditor from "./components/ImprovedPromptEditor.jsx";
 import CustomLoaders from "./components/CustomLoaders1";
 import Onboarding from "./components/Onboarding";
-import { exportTestCasesToExcel } from "./utils/exportToExcel";
+import { 
+  exportTestCasesToExcel, 
+  exportTestCasesToPDF, 
+  exportTestCasesToCSV, 
+  exportAllFormats 
+} from "./utils/exportToExcel";
+import { API_BASE_URL } from "./config.js";
 
 function App() {
   const [stage, setStage] = useState("input");
@@ -19,12 +26,11 @@ function App() {
   const [showExportModal, setShowExportModal] = useState(false);
   const [testCaseCount, setTestCaseCount] = useState("");
   const [showOnboarding, setShowOnboarding] = useState(() => {
-    // Check if user has seen onboarding before
     const hasSeenOnboarding = localStorage.getItem('hasSeenOnboarding');
     return !hasSeenOnboarding;
   });
   
-  // Undo/Redo functionality -- useless, can remove it
+  // Undo/Redo functionality -- useless need to remove this
   const [history, setHistory] = useState([]);
   const [historyIndex, setHistoryIndex] = useState(-1);
   const isUndoRedoAction = useRef(false);
@@ -40,15 +46,30 @@ function App() {
     localStorage.setItem('hasSeenOnboarding', 'true');
   };
 
-  // Helper function to convert pipe strings to step objects
   const parseStepString = (stepString) => {
-    if (typeof stepString === 'object') return stepString;
+    // If it's already a proper object, return it
+    if (typeof stepString === 'object' && stepString !== null) {
+      return {
+        stepNum: stepString.stepNum || '',
+        stepDesc: stepString.stepDesc || '',
+        expectedResult: stepString.expectedResult || ''
+      };
+    }
     
-    const parts = stepString.split('|');
+    if (typeof stepString === 'string') {
+      const parts = stepString.split('|').map(part => (part || '').trim());
+      return {
+        stepNum: parts[0] || '',
+        stepDesc: parts[1] || '',
+        expectedResult: parts[2] || ''
+      };
+    }
+    
+    // Fallback for any other format
     return {
-      stepNum: parts[0] || '',
-      stepDesc: parts[1] || '',
-      expectedResult: parts[2] || ''
+      stepNum: '',
+      stepDesc: '',
+      expectedResult: ''
     };
   };
 
@@ -58,11 +79,19 @@ function App() {
     return `${step.stepNum || ''} | ${step.stepDesc || ''} | ${step.expectedResult || ''}`;
   };
 
-  // Convert test cases to ensure step objects format
   const normalizeTestCases = (cases) => {
-    return cases.map(tc => ({
+    return cases.map((tc, tcIndex) => ({
       ...tc,
-      steps: (tc.steps || []).map(step => parseStepString(step))
+      steps: (tc.steps || []).map((step, stepIndex) => {
+        const normalizedStep = parseStepString(step);
+        return {
+          ...normalizedStep,
+          // Ensure consistent structure for drag and drop
+          id: `step-${tcIndex}-${stepIndex}-${Date.now()}`, // Unique ID
+          tcIndex,
+          stepIndex
+        };
+      })
     }));
   };
 
@@ -150,17 +179,23 @@ function App() {
     setLoadingStage("improving");
 
     try {
-      const improveResponse = await fetch("/api/improve", {
+      console.log("📤 Sending improve request...", { prompt, selectedEngine });
+      
+      const improveResponse = await fetch(`${API_BASE_URL}/api/improve`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ prompt }),
       });
+
+      console.log("📡 Improve response status:", improveResponse.status);
 
       if (!improveResponse.ok) {
         throw new Error(`HTTP error! status: ${improveResponse.status}`);
       }
 
       const improveData = await improveResponse.json();
+      console.log("📨 Improve response data:", improveData);
+      
       const improved = improveData.improvedPrompt;
 
       setImprovedPrompt(improved);
@@ -188,17 +223,22 @@ function App() {
         testCaseCount: validatedCount
       };
 
-      const testCasesResponse = await fetch("/api/ai/generate-testcases", {
+      console.log("📤 Sending generate test cases request...", requestBody);
+
+      const testCasesResponse = await fetch(`${API_BASE_URL}/api/ai/generate-testcases`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
       });
+
+      console.log("📡 Test cases response status:", testCasesResponse.status);
 
       if (!testCasesResponse.ok) {
         throw new Error(`HTTP error! status: ${testCasesResponse.status}`);
       }
 
       const testCasesData = await testCasesResponse.json();
+      console.log("📨 Test cases response data:", testCasesData);
       
       let structuredTestCases = [];
       if (testCasesData.testCases && Array.isArray(testCasesData.testCases)) {
@@ -211,7 +251,7 @@ function App() {
           name: "Generated Test Case",
           description: "Please edit this test case based on the raw response",
           precondition: "",
-          steps: [{ stepNum: "1", stepDesc: "Review generated content", expectedResult: "Update accordingly" }]
+          steps: ["1 | Review generated content | Update accordingly"]
         }];
       }
 
@@ -246,10 +286,11 @@ function App() {
         name: "Error - Manual Entry Required",
         description: "There was an error generating test cases. Please enter manually.",
         precondition: "",
-        steps: [{ stepNum: "1", stepDesc: "Enter step description", expectedResult: "Enter expected result" }]
+        steps: ["1 | Enter step description | Enter expected result"]
       }];
-      setTestCases(fallbackCases);
-      setHistory([JSON.parse(JSON.stringify(fallbackCases))]);
+      const normalizedFallback = normalizeTestCases(fallbackCases);
+      setTestCases(normalizedFallback);
+      setHistory([JSON.parse(JSON.stringify(normalizedFallback))]);
       setHistoryIndex(0);
       setStage("result");
       setLoadingStage("");
@@ -299,7 +340,9 @@ function App() {
         testCaseCount: validatedCount
       };
 
-      const testCasesResponse = await fetch("/api/ai/generate-testcases", {
+      console.log("📤 Regenerating test cases...", requestBody);
+
+      const testCasesResponse = await fetch(`${API_BASE_URL}/api/ai/generate-testcases`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify(requestBody),
@@ -322,7 +365,7 @@ function App() {
           name: "Generated Test Case",
           description: "Please edit this test case based on the raw response",
           precondition: "",
-          steps: [{ stepNum: "1", stepDesc: "Review generated content", expectedResult: "Update accordingly" }]
+          steps: ["1 | Review generated content | Update accordingly"]
         }];
       }
       
@@ -338,20 +381,22 @@ function App() {
         name: "Error - Manual Entry Required",
         description: "There was an error regenerating test cases. Please enter manually.",
         precondition: "",
-        steps: [{ stepNum: "1", stepDesc: "Enter step description", expectedResult: "Enter expected result" }]
+        steps: ["1 | Enter step description | Enter expected result"]
       }];
-      setTestCases(fallbackCases);
-      setHistory([JSON.parse(JSON.stringify(fallbackCases))]);
+      const normalizedFallback = normalizeTestCases(fallbackCases);
+      setTestCases(normalizedFallback);
+      setHistory([JSON.parse(JSON.stringify(normalizedFallback))]);
       setHistoryIndex(0);
       setStage("result");
       setLoadingStage("");
     }
   };
 
-  // Enhanced update functions with undo support
+  // FIXED: Enhanced update functions with proper re-normalization
   const updateTestCases = (newTestCases) => {
-    setTestCases(newTestCases);
-    saveToHistory(newTestCases);
+    const normalizedCases = normalizeTestCases(newTestCases);
+    setTestCases(normalizedCases);
+    saveToHistory(normalizedCases);
   };
 
   const updateTestCaseField = (tcIndex, field, value) => {
@@ -411,19 +456,23 @@ function App() {
     updateTestCases([...testCases, newTestCase]);
   };
 
-  // Drag and Drop functionality
+  // FIXED: Robust drag and drop functionality
   const handleDragEnd = (result) => {
     if (!result.destination) return;
 
-    const { source, destination } = result;
+    const { source, destination, draggableId } = result;
     
+    // Extract test case index from droppable ID
     const tcIndex = parseInt(source.droppableId.split('-')[1]);
     
     if (source.index === destination.index) return;
 
+    console.log('🔄 Drag end:', { source, destination, draggableId, tcIndex });
+
     const updated = [...testCases];
     const steps = [...updated[tcIndex].steps];
     
+    // Reorder the steps
     const [reorderedStep] = steps.splice(source.index, 1);
     steps.splice(destination.index, 0, reorderedStep);
     
@@ -436,17 +485,36 @@ function App() {
     setShowExportModal(true);
   };
 
+  // Enhanced export handler to support multiple formats
   const handleExport = (format) => {
     const exportCases = testCases.map(tc => ({
       ...tc,
       steps: tc.steps.map(stepToString)
     }));
     
-    exportTestCasesToExcel(exportCases);
+    console.log(`📤 Exporting ${testCases.length} test cases in ${format} format...`);
+    
+    switch (format) {
+      case 'excel':
+        exportTestCasesToExcel(exportCases);
+        break;
+      case 'pdf':
+        exportTestCasesToPDF(exportCases);
+        break;
+      case 'csv':
+        exportTestCasesToCSV(exportCases);
+        break;
+      case 'all':
+        exportAllFormats(exportCases);
+        break;
+      default:
+        exportTestCasesToExcel(exportCases);
+    }
+    
     setShowExportModal(false);
   };
 
-  // Export Modal Component
+  // Enhanced Export Modal with all format options
   const ExportModal = () => (
     <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50">
       <div className="bg-white rounded-lg p-6 max-w-md w-full mx-4">
@@ -456,20 +524,55 @@ function App() {
         <div className="space-y-3">
           <button
             onClick={() => handleExport('excel')}
-            className="w-full p-3 text-left border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center"
+            className="w-full p-3 text-left border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center transition-colors"
           >
             <span className="text-2xl mr-3">📊</span>
             <div>
               <div className="font-semibold">Excel (.xlsx)</div>
-              <div className="text-sm text-gray-500">Formatted spreadsheet with styling</div>
+              <div className="text-sm text-gray-500">Formatted spreadsheet with styling and merging</div>
             </div>
           </button>
+          
+          <button
+            onClick={() => handleExport('pdf')}
+            className="w-full p-3 text-left border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center transition-colors"
+          >
+            <span className="text-2xl mr-3">📄</span>
+            <div>
+              <div className="font-semibold">PDF (.pdf)</div>
+              <div className="text-sm text-gray-500">Professional document with tables and formatting</div>
+            </div>
+          </button>
+          
+          <button
+            onClick={() => handleExport('csv')}
+            className="w-full p-3 text-left border border-gray-300 rounded-lg hover:bg-gray-50 flex items-center transition-colors"
+          >
+            <span className="text-2xl mr-3">📈</span>
+            <div>
+              <div className="font-semibold">CSV (.csv)</div>
+              <div className="text-sm text-gray-500">Simple data format for analysis and import</div>
+            </div>
+          </button>
+          
+          <div className="border-t pt-3 mt-3">
+            <button
+              onClick={() => handleExport('all')}
+              className="w-full p-3 text-left border-2 border-indigo-300 rounded-lg hover:bg-indigo-50 flex items-center transition-colors"
+            >
+              <span className="text-2xl mr-3">📦</span>
+              <div>
+                <div className="font-semibold text-indigo-700">All Formats</div>
+                <div className="text-sm text-indigo-600">Export Excel, PDF, and CSV simultaneously</div>
+              </div>
+            </button>
+          </div>
         </div>
         
         <div className="flex justify-end space-x-3 mt-6">
           <button
             onClick={() => setShowExportModal(false)}
-            className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50"
+            className="px-4 py-2 text-gray-600 border border-gray-300 rounded hover:bg-gray-50 transition-colors"
           >
             Cancel
           </button>
@@ -615,12 +718,12 @@ function App() {
                     ✅ Generated Test Cases ({testCases.length})
                   </h2>
                   <button
-                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2"
+                    className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700 disabled:bg-gray-400 disabled:cursor-not-allowed flex items-center space-x-2 transition-colors"
                     onClick={handleExportClick}
                     disabled={testCases.length === 0}
                   >
                     <span>📤</span>
-                    <span>Export to Excel</span>
+                    <span>Export</span>
                   </button>
                 </div>
 
@@ -647,7 +750,7 @@ function App() {
                         </h3>
                         <button
                           onClick={() => deleteTestCase(tcIndex)}
-                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm"
+                          className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600 text-sm transition-colors"
                         >
                           🗑️ Delete
                         </button>
@@ -694,7 +797,7 @@ function App() {
                         </div>
                       </div>
 
-                      {/* Test Steps Table with Drag and Drop */}
+                      {/* Test Steps Table with FIXED Drag and Drop */}
                       <div>
                         <div className="flex justify-between items-center mb-3">
                           <h4 className="text-lg font-semibold text-gray-800">
@@ -702,7 +805,7 @@ function App() {
                           </h4>
                           <button
                             onClick={() => addTestStep(tcIndex)}
-                            className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm"
+                            className="bg-blue-500 text-white px-3 py-1 rounded hover:bg-blue-600 text-sm transition-colors"
                           >
                             ➕ Add Step
                           </button>
@@ -730,68 +833,78 @@ function App() {
                               </tr>
                             </thead>
                             <Droppable droppableId={`steps-${tcIndex}`}>
-                              {(provided) => (
-                                <tbody {...provided.droppableProps} ref={provided.innerRef}>
+                              {(provided, snapshot) => (
+                                <tbody 
+                                  {...provided.droppableProps} 
+                                  ref={provided.innerRef}
+                                  className={snapshot.isDraggingOver ? 'bg-blue-50' : ''}
+                                >
                                   {tc.steps && tc.steps.length > 0 ? (
-                                    tc.steps.map((step, stepIndex) => (
-                                      <Draggable 
-                                        key={`tc-${tcIndex}-step-${stepIndex}`} 
-                                        draggableId={`tc-${tcIndex}-step-${stepIndex}`} 
-                                        index={stepIndex}
-                                      >
-                                        {(provided, snapshot) => (
-                                          <tr
-                                            ref={provided.innerRef}
-                                            {...provided.draggableProps}
-                                            className={`border-b hover:bg-gray-50 ${
-                                              snapshot.isDragging ? 'bg-blue-50 shadow-lg' : ''
-                                            }`}
-                                          >
-                                            <td className="w-12 px-2 py-2 border-r border-gray-300 text-center">
-                                              <div
-                                                {...provided.dragHandleProps}
-                                                className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 select-none"
-                                              >
-                                                ⋮⋮
-                                              </div>
-                                            </td>
-                                            <td className="w-16 px-2 py-2 border-r border-gray-300">
-                                              <textarea
-                                                value={step.stepNum || ''}
-                                                placeholder={`${stepIndex + 1}`}
-                                                className="w-full border p-1 rounded focus:ring-1 focus:ring-indigo-500 text-center min-h-[2rem] resize-y text-sm"
-                                                onChange={(e) => updateTestStep(tcIndex, stepIndex, 'stepNum', e.target.value)}
-                                              />
-                                            </td>
-                                            <td className="px-3 py-2 border-r border-gray-300">
-                                              <textarea
-                                                value={step.stepDesc || ''}
-                                                placeholder="Enter step description"
-                                                className="w-full border p-2 rounded focus:ring-1 focus:ring-indigo-500 min-h-[2rem] resize-y"
-                                                onChange={(e) => updateTestStep(tcIndex, stepIndex, 'stepDesc', e.target.value)}
-                                              />
-                                            </td>
-                                            <td className="px-3 py-2 border-r border-gray-300">
-                                              <textarea
-                                                value={step.expectedResult || ''}
-                                                placeholder="Enter expected result"
-                                                className="w-full border p-2 rounded focus:ring-1 focus:ring-indigo-500 min-h-[2rem] resize-y"
-                                                onChange={(e) => updateTestStep(tcIndex, stepIndex, 'expectedResult', e.target.value)}
-                                              />
-                                            </td>
-                                            <td className="w-20 px-2 py-2 text-center">
-                                              <button
-                                                className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded"
-                                                onClick={() => deleteTestStep(tcIndex, stepIndex)}
-                                                title="Delete step"
-                                              >
-                                                ❌
-                                              </button>
-                                            </td>
-                                          </tr>
-                                        )}
-                                      </Draggable>
-                                    ))
+                                    tc.steps.map((step, stepIndex) => {
+                                      const dragId = `tc-${tcIndex}-step-${stepIndex}`;
+                                      return (
+                                        <Draggable 
+                                          key={dragId}
+                                          draggableId={dragId} 
+                                          index={stepIndex}
+                                        >
+                                          {(provided, snapshot) => (
+                                            <tr
+                                              ref={provided.innerRef}
+                                              {...provided.draggableProps}
+                                              className={`border-b hover:bg-gray-50 transition-colors ${
+                                                snapshot.isDragging ? 'bg-blue-100 shadow-lg z-10' : ''
+                                              }`}
+                                              style={{
+                                                ...provided.draggableProps.style,
+                                              }}
+                                            >
+                                              <td className="w-12 px-2 py-2 border-r border-gray-300 text-center">
+                                                <div
+                                                  {...provided.dragHandleProps}
+                                                  className="cursor-grab hover:cursor-grabbing text-gray-400 hover:text-gray-600 select-none transition-colors p-1"
+                                                >
+                                                  ⋮⋮
+                                                </div>
+                                              </td>
+                                              <td className="w-16 px-2 py-2 border-r border-gray-300">
+                                                <textarea
+                                                  value={step.stepNum || ''}
+                                                  placeholder={`${stepIndex + 1}`}
+                                                  className="w-full border p-1 rounded focus:ring-1 focus:ring-indigo-500 text-center min-h-[2rem] resize-y text-sm"
+                                                  onChange={(e) => updateTestStep(tcIndex, stepIndex, 'stepNum', e.target.value)}
+                                                />
+                                              </td>
+                                              <td className="px-3 py-2 border-r border-gray-300">
+                                                <textarea
+                                                  value={step.stepDesc || ''}
+                                                  placeholder="Enter step description"
+                                                  className="w-full border p-2 rounded focus:ring-1 focus:ring-indigo-500 min-h-[2rem] resize-y"
+                                                  onChange={(e) => updateTestStep(tcIndex, stepIndex, 'stepDesc', e.target.value)}
+                                                />
+                                              </td>
+                                              <td className="px-3 py-2 border-r border-gray-300">
+                                                <textarea
+                                                  value={step.expectedResult || ''}
+                                                  placeholder="Enter expected result"
+                                                  className="w-full border p-2 rounded focus:ring-1 focus:ring-indigo-500 min-h-[2rem] resize-y"
+                                                  onChange={(e) => updateTestStep(tcIndex, stepIndex, 'expectedResult', e.target.value)}
+                                                />
+                                              </td>
+                                              <td className="w-20 px-2 py-2 text-center">
+                                                <button
+                                                  className="text-red-500 hover:text-red-700 hover:bg-red-50 p-1 rounded transition-colors"
+                                                  onClick={() => deleteTestStep(tcIndex, stepIndex)}
+                                                  title="Delete step"
+                                                >
+                                                  ❌
+                                                </button>
+                                              </td>
+                                            </tr>
+                                          )}
+                                        </Draggable>
+                                      );
+                                    })
                                   ) : (
                                     <tr>
                                       <td colSpan="5" className="text-center py-6 text-gray-500">
@@ -813,7 +926,7 @@ function App() {
                 {/* Add New Test Case */}
                 <div className="pt-4">
                   <button
-                    className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 shadow-md font-semibold"
+                    className="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 shadow-md font-semibold transition-colors"
                     onClick={addNewTestCase}
                   >
                     ➕ Add New Test Case

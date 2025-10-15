@@ -1,0 +1,29 @@
+# Node dependencies
+frontend-template/node_modules/
+frontend-template/backend/node_modules/
+**/node_modules/
+
+# Environment vars
+**/.env
+
+# Build output
+frontend-template/dist/
+**/dist/
+
+# Vite cache
+frontend-template/node_modules/.vite/
+**/.vite/
+
+# Vercel
+.vercel/
+
+# Logs
+*.log
+npm-debug.log*
+
+# IDE settings
+.vscode/
+
+# OS files
+.DS_Store
+Thumbs.db
